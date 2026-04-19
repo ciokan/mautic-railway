@@ -1,4 +1,4 @@
-FROM mautic/mautic:latest
+FROM mautic/mautic:7-apache
 
 ARG MAUTIC_DB_HOST
 ARG MAUTIC_DB_PORT
@@ -19,4 +19,13 @@ ENV MAUTIC_TRUSTED_PROXIES=$MAUTIC_TRUSTED_PROXIES
 ENV MAUTIC_URL=$MAUTIC_URL
 ENV MAUTIC_ADMIN_EMAIL=$MAUTIC_ADMIN_EMAIL
 ENV MAUTIC_ADMIN_PASSWORD=$MAUTIC_ADMIN_PASSWORD
-ENV PHP_INI_DATE_TIMEZONE='UTC'
+ENV PHP_INI_DATE_TIMEZONE='Europe/Bucharest'
+
+# Fix MPM conflict
+RUN a2dismod mpm_event 2>/dev/null; \
+    a2enmod mpm_prefork
+
+RUN mkdir -p /var/www/html/var/logs && chown -R www-data:www-data /var/www/html/var/logs && exec docker-php-entrypoint apache2-foreground
+
+# Start using the original entrypoint
+CMD ["docker-php-entrypoint", "apache2-foreground"]
