@@ -1,4 +1,4 @@
-FROM mautic/mautic:7-apache
+FROM mautic/mautic:7-fpm
 
 ARG MAUTIC_DB_HOST
 ARG MAUTIC_DB_PORT
@@ -20,12 +20,3 @@ ENV MAUTIC_URL=$MAUTIC_URL
 ENV MAUTIC_ADMIN_EMAIL=$MAUTIC_ADMIN_EMAIL
 ENV MAUTIC_ADMIN_PASSWORD=$MAUTIC_ADMIN_PASSWORD
 ENV PHP_INI_DATE_TIMEZONE='Europe/Bucharest'
-
-# Fix MPM conflict by manually removing the event module load files
-RUN rm -f /etc/apache2/mods-enabled/mpm_event.load /etc/apache2/mods-enabled/mpm_event.conf && \
-    a2enmod mpm_prefork && \
-    mkdir -p /var/www/html/var/logs && \
-    chown -R www-data:www-data /var/www/html/var/logs
-
-ENTRYPOINT ["docker-mautic-entrypoint"]
-CMD ["apache2-foreground"]
