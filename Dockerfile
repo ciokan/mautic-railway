@@ -1,12 +1,5 @@
 FROM mautic/mautic:7-apache
 
-# Railway MPM conflict fix — Apache boots with mpm_event AND mpm_prefork
-# both enabled on Railway's infra, which Apache rejects. mod_php needs
-# prefork, so disable the others.
-RUN a2dismod -f mpm_event 2>/dev/null || true \
- && a2dismod -f mpm_worker 2>/dev/null || true \
- && a2enmod mpm_prefork
-
 ARG MAUTIC_DB_HOST
 ARG MAUTIC_DB_PORT
 ARG MAUTIC_DB_USER
@@ -26,3 +19,21 @@ ENV MAUTIC_URL=$MAUTIC_URL
 ENV MAUTIC_ADMIN_EMAIL=$MAUTIC_ADMIN_EMAIL
 ENV MAUTIC_ADMIN_PASSWORD=$MAUTIC_ADMIN_PASSWORD
 ENV PHP_INI_VALUE_DATE_TIMEZONE='Europe/Bucharest'
+
+# Railway MPM fix — runs on every container start.
+# Something (either Railway's layer or a Mautic /startup/ script) re-enables
+# mpm_event after build, so we have to fix it at runtime, just before the
+# real entrypoint hands off to apache2-foreground.
+RUN printf '%s\n' \
+  '#!/bin/bash' \
+  'set -e' \
+  'a2dismod -f mpm_event  >/dev/null 2>&1 || true' \
+  'a2dismod -f mpm_worker >/dev/null 2>&1 || true' \
+  'a2enmod     mpm_prefork >/dev/null 2>&1 || true' \
+  'rm -f /etc/apache2/mods-enabled/mpm_event.* /etc/apache2/mods-enabled/mpm_worker.*' \
+  'exec /entrypoint.sh "$@"' \
+  > /railway-wrapper.sh \
+ && chmod +x /railway-wrapper.sh
+
+ENTRYPOINT ["/railway-wrapper.sh"]
+CMD ["apache2-foreground"]
