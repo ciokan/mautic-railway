@@ -25,7 +25,7 @@ ENV PHP_INI_DATE_TIMEZONE='Europe/Bucharest'
 RUN a2dismod mpm_event 2>/dev/null; \
     a2enmod mpm_prefork
 
-RUN mkdir -p /var/www/html/var/logs && chown -R www-data:www-data /var/www/html/var/logs && exec docker-php-entrypoint apache2-foreground
+RUN mkdir -p /var/www/html/var/logs && chown -R www-data:www-data /var/www/html/var/logs
 
 # Start using the original entrypoint
 CMD ["docker-php-entrypoint", "apache2-foreground"]
