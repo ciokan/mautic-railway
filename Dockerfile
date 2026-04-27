@@ -1,76 +1,58 @@
 FROM mautic/mautic:7.1-apache
 
-# Build args
-ARG MAUTIC_DB_HOST
-ARG MAUTIC_DB_PORT
-ARG MAUTIC_DB_USER
-ARG MAUTIC_DB_PASSWORD
-ARG MAUTIC_DB_DATABASE
-ARG MAUTIC_TRUSTED_PROXIES
-ARG MAUTIC_URL
-ARG MAUTIC_SITE_URL
-ARG MAUTIC_ADMIN_EMAIL
-ARG MAUTIC_ADMIN_PASSWORD
-
-# Runtime ENV
-ENV MAUTIC_DB_HOST=$MAUTIC_DB_HOST
-ENV MAUTIC_DB_PORT=$MAUTIC_DB_PORT
-ENV MAUTIC_DB_USER=$MAUTIC_DB_USER
-ENV MAUTIC_DB_PASSWORD=$MAUTIC_DB_PASSWORD
-ENV MAUTIC_DB_DATABASE=$MAUTIC_DB_DATABASE
-ENV MAUTIC_TRUSTED_PROXIES=$MAUTIC_TRUSTED_PROXIES
-ENV MAUTIC_URL=$MAUTIC_URL
-ENV MAUTIC_SITE_URL=$MAUTIC_SITE_URL
-ENV MAUTIC_ADMIN_EMAIL=$MAUTIC_ADMIN_EMAIL
-ENV MAUTIC_ADMIN_PASSWORD=$MAUTIC_ADMIN_PASSWORD
 ENV PHP_INI_VALUE_DATE_TIMEZONE='Europe/Bucharest'
 
-# Wrapper script creation
-RUN cat << 'BASH_SCRIPT' > /railway-wrapper.sh
+RUN cat > /railway-wrapper.sh << 'BASH_SCRIPT'
 #!/bin/bash
 set -e
 
-# 1. Create required directories (fixes startup checks)
+# 1. Directories
 mkdir -p /var/www/html/var/{logs,cache,sessions,imports,exports}
 mkdir -p /var/www/html/media/{files,images}
 mkdir -p /var/www/html/config
-chown -R www-data:www-data /var/www/html/var /var/www/html/media
+chown -R www-data:www-data /var/www/html/var /var/www/html/media /var/www/html/config
 
-# 2. Write the config generator script
-cat > /tmp/gen_config.php << 'PHP_SCRIPT'
-<?php
+# 2. Generate config — single php -r, no nested heredoc
+php -r '
+$proxies = getenv("MAUTIC_TRUSTED_PROXIES");
+$proxiesArr = ["0.0.0.0/0", "::/0"];
+if ($proxies && $proxies !== "ALL" && $proxies !== "*") {
+    $decoded = json_decode($proxies, true);
+    if (is_array($decoded)) {
+        $proxiesArr = $decoded;
+    } else {
+        $proxiesArr = array_map("trim", explode(",", $proxies));
+    }
+}
+
 $config = [
-    'db_driver' => 'pdo_mysql',
-    'db_host' => getenv('MAUTIC_DB_HOST'),
-    'db_port' => getenv('MAUTIC_DB_PORT') ?: '3306',
-    'db_table_prefix' => null,
-    'db_backup_tables' => 1,
-    'db_backup_prefix' => 'bak_',
-    'mailer_dsn' => getenv('MAUTIC_MAILER_DSN') ?: 'smtp://localhost:25',
-    'site_url' => rtrim(getenv('MAUTIC_SITE_URL'), '/'),
+    "db_driver"        => "pdo_mysql",
+    "db_host"          => getenv("MAUTIC_DB_HOST"),
+    "db_port"          => getenv("MAUTIC_DB_PORT") ?: "3306",
+    "db_user"          => getenv("MAUTIC_DB_USER"),
+    "db_password"      => getenv("MAUTIC_DB_PASSWORD"),
+    "db_name"          => getenv("MAUTIC_DB_DATABASE"),
+    "db_table_prefix"  => null,
+    "db_backup_tables" => 1,
+    "db_backup_prefix" => "bak_",
+    "mailer_dsn"       => getenv("MAUTIC_MAILER_DSN") ?: "smtp://localhost:25",
+    "site_url"         => rtrim((string)getenv("MAUTIC_SITE_URL"), "/"),
+    "trusted_proxies"  => $proxiesArr,
 ];
 
-// Handle trusted proxies JSON
-$config['trusted_proxies'] = ['0.0.0.0/0', '::/0'];
-
-// Generate PHP code
 $content = "<?php\n\n\$parameters = " . var_export($config, true) . ";\n";
+file_put_contents("/var/www/html/config/local.php", $content);
+echo "Config written.\n";
+'
+chown www-data:www-data /var/www/html/config/local.php
 
-mkdir('config', 0755, true);
-file_put_contents('../config/local.php', $content);
-echo "Config generated successfully.\n";
-PHP_SCRIPT
-
-php /tmp/gen_config.php
-chown www-data:www-data ../config/local.php
-
-# 3. Fix Apache MPM
-a2dismod -f mpm_event >/dev/null 2>&1 || true
-a2dismod -f mpm_worker >/dev/null 2>&1 || true
+# 3. Apache MPM
+a2dismod -f mpm_event   >/dev/null 2>&1 || true
+a2dismod -f mpm_worker  >/dev/null 2>&1 || true
 a2enmod     mpm_prefork >/dev/null 2>&1 || true
 rm -f /etc/apache2/mods-enabled/mpm_event.* /etc/apache2/mods-enabled/mpm_worker.*
 
-# 4. Start Mautic
+# 4. Hand off to Mautic
 exec /entrypoint.sh "$@"
 BASH_SCRIPT
 
