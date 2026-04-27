@@ -14,16 +14,7 @@ chown -R www-data:www-data /var/www/html/var /var/www/html/media /var/www/html/c
 
 # 2. Generate config — single php -r, no nested heredoc
 php -r '
-$proxies = getenv("MAUTIC_TRUSTED_PROXIES");
 $proxiesArr = ["0.0.0.0/0", "::/0"];
-if ($proxies && $proxies !== "ALL" && $proxies !== "*") {
-    $decoded = json_decode($proxies, true);
-    if (is_array($decoded)) {
-        $proxiesArr = $decoded;
-    } else {
-        $proxiesArr = array_map("trim", explode(",", $proxies));
-    }
-}
 
 $config = [
     "db_driver"        => "pdo_mysql",
