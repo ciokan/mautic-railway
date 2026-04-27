@@ -51,13 +51,7 @@ $config = [
 ];
 
 // Handle trusted proxies JSON
-$proxies = getenv('MAUTIC_TRUSTED_PROXIES');
-if ($proxies) {
-    $p = json_decode($proxies, true);
-    if (is_array($p)) {
-        $config['trusted_proxies'] = $p;
-    }
-}
+$config['trusted_proxies'] =json_decode("['0.0.0.0/0', '::/0']", true);
 
 // Generate PHP code
 $content = "<?php\n\n\$parameters = " . var_export($config, true) . ";\n";
