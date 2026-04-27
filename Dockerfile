@@ -63,12 +63,12 @@ if ($proxies) {
 $content = "<?php\n\n\$parameters = " . var_export($config, true) . ";\n";
 
 mkdir('config', 0755, true);
-file_put_contents('config/local.php', $content);
+file_put_contents('../config/local.php', $content);
 echo "Config generated successfully.\n";
 PHP_SCRIPT
 
 php /tmp/gen_config.php
-chown www-data:www-data config/local.php
+chown www-data:www-data ../config/local.php
 
 # 3. Fix Apache MPM
 a2dismod -f mpm_event >/dev/null 2>&1 || true
