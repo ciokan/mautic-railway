@@ -24,13 +24,26 @@ ENV PHP_INI_VALUE_DATE_TIMEZONE='Europe/Bucharest'
 RUN printf '%s\n' \
   '#!/bin/bash' \
   'set -e' \
-  'mkdir -p /var/www/html/var/{logs,cache,sessions,imports,exports}' \
-  'mkdir -p /var/www/html/docroot/media/{files,images}' \
-  'chown -R www-data:www-data /var/www/html/var /var/www/html/docroot/media' \
-  'a2dismod -f mpm_event  >/dev/null 2>&1 || true' \
-  'a2dismod -f mpm_worker >/dev/null 2>&1 || true' \
-  'a2enmod     mpm_prefork >/dev/null 2>&1 || true' \
-  'rm -f /etc/apache2/mods-enabled/mpm_event.* /etc/apache2/mods-enabled/mpm_worker.*' \
+  '' \
+  '# Railway gives us one volume — use it for both media and config via symlinks.' \
+  'VOL=/persistent' \
+  'mkdir -p "$VOL/media/files" "$VOL/media/images" "$VOL/config"' \
+  '' \
+  '# Seed config from image on first boot (only if volume is empty).' \
+  'if [ -z "$(ls -A "$VOL/config" 2>/dev/null)" ] && [ -d /var/www/html/config ]; then' \
+  '  cp -a /var/www/html/config/. "$VOL/config/" || true' \
+  'fi' \
+  '' \
+  '# Replace in-image dirs with symlinks into the volume.' \
+  'rm -rf /var/www/html/docroot/media /var/www/html/config' \
+  'ln -sfn "$VOL/media"  /var/www/html/docroot/media' \
+  'ln -sfn "$VOL/config" /var/www/html/config' \
+  '' \
+  '# Ephemeral var/ — fine to recreate every boot.' \
+  'mkdir -p /var/www/html/var/logs /var/www/html/var/cache /var/www/html/var/sessions /var/www/html/var/imports /var/www/html/var/exports' \
+  '' \
+  'chown -R www-data:www-data "$VOL" /var/www/html/var /var/www/html/docroot/media /var/www/html/config' \
+  '' \
   'exec /entrypoint.sh "$@"' \
   > /railway-wrapper.sh \
  && chmod +x /railway-wrapper.sh
