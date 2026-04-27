@@ -51,7 +51,7 @@ $config = [
 ];
 
 // Handle trusted proxies JSON
-$config['trusted_proxies'] =json_decode("['0.0.0.0/0', '::/0']", true);
+$config['trusted_proxies'] = ['0.0.0.0/0', '::/0'];
 
 // Generate PHP code
 $content = "<?php\n\n\$parameters = " . var_export($config, true) . ";\n";
