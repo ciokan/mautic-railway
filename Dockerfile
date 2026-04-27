@@ -1,5 +1,14 @@
 FROM mautic/mautic:7.1-apache
 
+# Ensure required directories exist with correct permissions
+RUN mkdir -p /var/www/html/var/{logs,cache,sessions,imports,exports} \
+    /var/www/html/media/files \
+    /var/www/html/media/images \
+    /var/www/html/plugins \
+    && chown -R www-data:www-data /var/www/html/var \
+    /var/www/html/media \
+    /var/www/html/plugins
+
 ARG MAUTIC_DB_HOST
 ARG MAUTIC_DB_PORT
 ARG MAUTIC_DB_USER
