@@ -9,6 +9,7 @@ ARG MAUTIC_TRUSTED_PROXIES
 ARG MAUTIC_URL
 ARG MAUTIC_ADMIN_EMAIL
 ARG MAUTIC_ADMIN_PASSWORD
+
 ENV MAUTIC_DB_HOST=$MAUTIC_DB_HOST
 ENV MAUTIC_DB_PORT=$MAUTIC_DB_PORT
 ENV MAUTIC_DB_USER=$MAUTIC_DB_USER
@@ -24,8 +25,8 @@ RUN printf '%s\n' \
   '#!/bin/bash' \
   'set -e' \
   'mkdir -p /var/www/html/var/{logs,cache,sessions,imports,exports}' \
-  'mkdir -p /var/www/html/media/{files,images}' \
-  'chown -R www-data:www-data /var/www/html/var /var/www/html/media' \
+  'mkdir -p /var/www/html/docroot/media/{files,images}' \
+  'chown -R www-data:www-data /var/www/html/var /var/www/html/docroot/media' \
   'a2dismod -f mpm_event  >/dev/null 2>&1 || true' \
   'a2dismod -f mpm_worker >/dev/null 2>&1 || true' \
   'a2enmod     mpm_prefork >/dev/null 2>&1 || true' \
