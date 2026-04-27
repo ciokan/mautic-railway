@@ -21,28 +21,40 @@ ENV MAUTIC_ADMIN_EMAIL=$MAUTIC_ADMIN_EMAIL
 ENV MAUTIC_ADMIN_PASSWORD=$MAUTIC_ADMIN_PASSWORD
 ENV PHP_INI_VALUE_DATE_TIMEZONE='Europe/Bucharest'
 
+# Bake the MPM fix into the image so the symlinks are sane before any wrapper runs.
+# Railway sometimes ends up with mpm_event AND mpm_prefork both enabled on
+# php:*-apache base images, which makes Apache refuse to start.
+RUN a2dismod -f mpm_event mpm_worker >/dev/null 2>&1 || true \
+ && rm -f /etc/apache2/mods-enabled/mpm_event.* \
+          /etc/apache2/mods-enabled/mpm_worker.* \
+ && a2enmod mpm_prefork >/dev/null
+
 RUN printf '%s\n' \
   '#!/bin/bash' \
   'set -e' \
   '' \
-  '# Railway gives us one volume — use it for both media and config via symlinks.' \
+  '# Belt-and-braces: fix MPM at runtime too, in case the platform re-enables anything.' \
+  'a2dismod -f mpm_event mpm_worker >/dev/null 2>&1 || true' \
+  'rm -f /etc/apache2/mods-enabled/mpm_event.* /etc/apache2/mods-enabled/mpm_worker.*' \
+  'a2enmod mpm_prefork >/dev/null 2>&1 || true' \
+  '' \
   'VOL=/persistent' \
   'mkdir -p "$VOL/media/files" "$VOL/media/images" "$VOL/config"' \
   '' \
-  '# Seed config from image on first boot (only if volume is empty).' \
   'if [ -z "$(ls -A "$VOL/config" 2>/dev/null)" ] && [ -d /var/www/html/config ]; then' \
   '  cp -a /var/www/html/config/. "$VOL/config/" || true' \
   'fi' \
   '' \
-  '# Replace in-image dirs with symlinks into the volume.' \
   'rm -rf /var/www/html/docroot/media /var/www/html/config' \
   'ln -sfn "$VOL/media"  /var/www/html/docroot/media' \
   'ln -sfn "$VOL/config" /var/www/html/config' \
   '' \
-  '# Ephemeral var/ — fine to recreate every boot.' \
   'mkdir -p /var/www/html/var/logs /var/www/html/var/cache /var/www/html/var/sessions /var/www/html/var/imports /var/www/html/var/exports' \
   '' \
   'chown -R www-data:www-data "$VOL" /var/www/html/var /var/www/html/docroot/media /var/www/html/config' \
+  '' \
+  '# Sanity-check apache config before handing off — fail loud, not after migrations.' \
+  'apache2ctl -t' \
   '' \
   'exec /entrypoint.sh "$@"' \
   > /railway-wrapper.sh \
