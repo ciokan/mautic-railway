@@ -1,14 +1,5 @@
 FROM mautic/mautic:7.1-apache
 
-# Ensure required directories exist with correct permissions
-RUN mkdir -p /var/www/html/var/{logs,cache,sessions,imports,exports} \
-    /var/www/html/media/files \
-    /var/www/html/media/images \
-    /var/www/html/plugins \
-    && chown -R www-data:www-data /var/www/html/var \
-    /var/www/html/media \
-    /var/www/html/plugins
-
 ARG MAUTIC_DB_HOST
 ARG MAUTIC_DB_PORT
 ARG MAUTIC_DB_USER
@@ -29,13 +20,12 @@ ENV MAUTIC_ADMIN_EMAIL=$MAUTIC_ADMIN_EMAIL
 ENV MAUTIC_ADMIN_PASSWORD=$MAUTIC_ADMIN_PASSWORD
 ENV PHP_INI_VALUE_DATE_TIMEZONE='Europe/Bucharest'
 
-# Railway MPM fix — runs on every container start.
-# Something (either Railway's layer or a Mautic /startup/ script) re-enables
-# mpm_event after build, so we have to fix it at runtime, just before the
-# real entrypoint hands off to apache2-foreground.
 RUN printf '%s\n' \
   '#!/bin/bash' \
   'set -e' \
+  'mkdir -p /var/www/html/var/{logs,cache,sessions,imports,exports}' \
+  'mkdir -p /var/www/html/media/{files,images}' \
+  'chown -R www-data:www-data /var/www/html/var /var/www/html/media' \
   'a2dismod -f mpm_event  >/dev/null 2>&1 || true' \
   'a2dismod -f mpm_worker >/dev/null 2>&1 || true' \
   'a2enmod     mpm_prefork >/dev/null 2>&1 || true' \
